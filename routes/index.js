@@ -3,7 +3,7 @@ var router = express.Router();
 var nconf = require("nconf");
 var multipart = require('connect-multiparty');
 var multipartMiddleware = multipart();
-var AWS = require('s3-uploader/node_modules/aws-sdk');
+var AWS = require('aws-sdk');
 var _ = require('lodash');
 var async = require('async');
 
@@ -91,21 +91,9 @@ router.post('/push/delete-topic', function(req, res, next){
 router.post('/push/publish', function(req, res, next){
   async.waterfall([
 
-    // Find topic
+    // Create if not exists
     function(cb) {
       if (!req.body.topic) return cb({status: 400, message: "Please provide a topic."})
-      var params = {
-        TopicArn: nconf.get('aws:sns:arn') + ':' + req.body.topic
-      }
-      sns.getTopicAttributes(params, function (err, data) {
-        if (err && err.code == 'NotFound') return cb(null, null);
-        if (err) return cb(err);
-        cb(null, data);
-      })
-
-    // Create if not exists
-    }, function(data, cb) {
-      if (data) return cb(null, data.Attributes);
       var params = {
         Name: req.body.topic
       };
@@ -113,6 +101,8 @@ router.post('/push/publish', function(req, res, next){
 
     // Subscribe
     }, function(data, cb) {
+      console.dir({data:data, body:req.body});
+      if (!req.body.EndpointArn) return cb(); // eg from browser
       var params = {
         Protocol: 'application', /* required */
         TopicArn: data.TopicArn, /* required */
